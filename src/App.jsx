@@ -307,8 +307,17 @@ export default function App() {
   const [selected, setSelected] = useState(null);
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
+  const [description, setDescription] = useState("");
+  const [imagePreview, setImagePreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  const resetAddForm = () => {
+    setNewName("");
+    setDescription("");
+    setImagePreview(null);
+    setError(null);
+  };
 
   useEffect(() => {
     const local = loadLocalDishes();
@@ -328,7 +337,12 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
       });
-      if (!response.ok) throw new Error("bad response");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.error || "Couldn't generate dish."
+        );
+      }
       const parsed = await response.json();
       if (!parsed.name || !Array.isArray(parsed.similar)) throw new Error("malformed");
       parsed.id = parsed.name.replace(/[^a-zA-Z]/g, "").toLowerCase() + Date.now();
@@ -338,10 +352,10 @@ export default function App() {
 
       setDishes((d) => [...d, parsed]);
       setAdding(false);
-      setNewName("");
+      resetAddForm();
       setSelected(parsed);
     } catch (e) {
-      setError("Couldn't launch that dish into orbit — try again in a moment.");
+      setError(e.message);
     } finally {
       setLoading(false);
     }
@@ -401,30 +415,29 @@ export default function App() {
           ))}
         </div>
 
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 18 }}>
+          <button
+            onClick={() => setAdding(true)}
+            style={{
+              background: TEXT,
+              color: BG,
+              border: "none",
+              borderRadius: 20,
+              padding: "8px 18px",
+              fontSize: 12.5,
+              fontFamily: "'IBM Plex Sans', sans-serif",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Add Dish
+          </button>
+        </div>
+
         <div style={{ display: "flex", flexWrap: "wrap", gap: 14, justifyContent: "center" }}>
           {filtered.map((d, i) => (
             <FoodCard key={d.id} dish={d} index={i} onClick={() => setSelected(d)} />
           ))}
-
-          <button
-            onClick={() => setAdding(true)}
-            style={{
-              width: 118,
-              borderRadius: 16,
-              border: `1px dashed ${DUST}`,
-              background: "transparent",
-              color: DUST,
-              cursor: "pointer",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "18px 10px",
-            }}
-          >
-            <div style={{ fontSize: 26 }}>+</div>
-            <div style={{ fontSize: 11.5, marginTop: 4, fontFamily: "'IBM Plex Sans', sans-serif" }}>add a dish</div>
-          </button>
         </div>
       </div>
 
@@ -448,6 +461,10 @@ export default function App() {
             <div style={{ fontSize: 12, color: DUST, marginBottom: 14 }}>
               Any sweet, dish, or baked good. Saved to your device's atlas.
             </div>
+
+            <label style={{ display: "block", fontSize: 12, color: DUST, marginBottom: 6 }}>
+              Food Name <span style={{ color: TEXT }}>*</span>
+            </label>
             <input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
@@ -460,28 +477,99 @@ export default function App() {
                 padding: "10px 12px",
                 color: TEXT,
                 fontSize: 14,
-                marginBottom: 12,
+                marginBottom: 14,
                 boxSizing: "border-box",
               }}
             />
+
+            <label style={{ display: "block", fontSize: 12, color: DUST, marginBottom: 6 }}>
+              Description <span style={{ color: DUST, fontSize: 11 }}>(optional)</span>
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="A short note about this dish…"
+              rows={3}
+              style={{
+                width: "100%",
+                background: BG,
+                border: `1px solid ${LINE}`,
+                borderRadius: 8,
+                padding: "10px 12px",
+                color: TEXT,
+                fontSize: 14,
+                marginBottom: 14,
+                boxSizing: "border-box",
+                resize: "vertical",
+                fontFamily: "'IBM Plex Sans', sans-serif",
+              }}
+            />
+
+            <label style={{ display: "block", fontSize: 12, color: DUST, marginBottom: 6 }}>
+              Image <span style={{ color: DUST, fontSize: 11 }}>(optional)</span>
+            </label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) {
+                  setImagePreview(null);
+                  return;
+                }
+                const reader = new FileReader();
+                reader.onload = () => setImagePreview(reader.result);
+                reader.readAsDataURL(file);
+              }}
+              style={{
+                width: "100%",
+                fontSize: 12,
+                color: DUST,
+                marginBottom: imagePreview ? 10 : 14,
+              }}
+            />
+            {imagePreview && (
+              <img
+                src={imagePreview}
+                alt="Preview"
+                style={{
+                  width: "100%",
+                  maxHeight: 120,
+                  objectFit: "cover",
+                  borderRadius: 8,
+                  border: `1px solid ${LINE}`,
+                  marginBottom: 14,
+                }}
+              />
+            )}
+
             {error && <div style={{ color: "#E85C5C", fontSize: 12, marginBottom: 10 }}>{error}</div>}
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
               <button
                 onClick={() => {
                   setAdding(false);
-                  setError(null);
-                  setNewName("");
+                  resetAddForm();
                 }}
                 style={{ background: "transparent", border: `1px solid ${LINE}`, color: DUST, borderRadius: 8, padding: "8px 14px", cursor: "pointer", fontSize: 12.5 }}
               >
-                cancel
+                Cancel
               </button>
               <button
                 onClick={submitDish}
-                disabled={loading}
-                style={{ background: TEXT, color: BG, border: "none", borderRadius: 8, padding: "8px 14px", cursor: "pointer", fontSize: 12.5, fontWeight: 600 }}
+                disabled={loading || !newName.trim()}
+                style={{
+                  background: TEXT,
+                  color: BG,
+                  border: "none",
+                  borderRadius: 8,
+                  padding: "8px 14px",
+                  cursor: loading || !newName.trim() ? "not-allowed" : "pointer",
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  opacity: loading || !newName.trim() ? 0.5 : 1,
+                }}
               >
-                {loading ? "launching…" : "launch it"}
+                {loading ? "Generating…" : "Generate"}
               </button>
             </div>
           </div>

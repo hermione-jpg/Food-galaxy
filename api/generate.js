@@ -4,54 +4,85 @@ export default async function handler(req, res) {
   }
 
   const { name } = req.body || {};
-  if (!name || typeof name !== "string") {
+
+  if (!name) {
     return res.status(400).json({ error: "Missing dish name" });
   }
 
-  const prompt = `You catalog dishes, sweets, and baked goods for an interactive "food galaxy" app.
+  const prompt = `
+You catalog dishes, sweets, and baked goods for an interactive "food galaxy" app.
 
 A user submitted this dish: "${name}"
 
-Return ONLY a JSON object, no prose, no markdown fences, matching exactly:
+Return ONLY valid JSON.
+
 {
-  "name": "clean display name of the dish",
-  "cuisine": "region or culture of origin",
-  "category": "one of: sweet, dish, baked",
-  "emoji": "a single emoji that best represents it",
-  "mood": "a hex color capturing its visual/flavor mood, e.g. #E8A24B",
-  "ingredients": ["4-6 core ingredients, lowercase, short"],
-  "lineage": "1-2 original sentences on its origin and how it traveled or evolved, under 40 words",
+  "name": "",
+  "cuisine": "",
+  "category": "sweet | dish | baked",
+  "emoji": "",
+  "mood": "#E8A24B",
+  "ingredients": [],
+  "lineage": "",
   "similar": [
-    { "name": "a related dish elsewhere in the world", "region": "its region", "note": "one short original sentence on the connection, under 18 words" }
+    {
+      "name": "",
+      "region": "",
+      "note": ""
+    }
   ]
 }
-Include exactly 3 items in "similar", from genuinely different regions where possible.`;
+
+Return exactly 3 similar dishes.
+`;
 
   try {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": process.env.ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 1000,
-        messages: [{ role: "user", content: prompt }],
-      }),
-    });
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: prompt,
+                },
+              ],
+            },
+          ],
+        }),
+      }
+    );
 
     const data = await response.json();
-    const textBlock = (data.content || []).find((b) => b.type === "text");
-    if (!textBlock) throw new Error("No text in response");
 
-    const cleaned = textBlock.text.replace(/```json|```/g, "").trim();
+    console.log(data);if (data.error?.code === 503) {
+      return res.status(503).json({
+        error: "Galaxy is busy. Please try again in a few seconds."
+      });
+    }
+
+    const text =
+      data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!text) {
+      throw new Error("Gemini returned no text.");
+    }
+
+    const cleaned = text.replace(/```json|```/g, "").trim();
+
     const parsed = JSON.parse(cleaned);
 
     return res.status(200).json(parsed);
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ error: "Failed to generate dish" });
+
+    return res.status(500).json({
+      error: "Failed to generate dish",
+    });
   }
 }

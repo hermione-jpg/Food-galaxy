@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import GalaxyView from "./Components/GalaxyView.jsx";
 
 const FONT_IMPORT = `
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;1,9..144,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
@@ -11,7 +12,16 @@ const DUST = "#8B8FB0";
 const LINE = "#22254A";
 const STORAGE_KEY = "food-galaxy-dishes";
 
-const CATEGORIES = ["all", "sweet", "dish", "baked"];
+const CATEGORIES = ["all",
+  "indian",
+  "south-asian",
+  "chinese",
+  "italian",
+  "french",
+  "mediterranean",
+  "japanese",
+  "thai",
+];
 
 const SEED = [
   {
@@ -169,14 +179,21 @@ function saveLocalDishes(dishes) {
   }
 }
 
+const NEBULAE = [
+  { top: "8%", left: "12%", size: 520, color: "rgba(232,162,75,0.10)" },
+  { top: "62%", left: "78%", size: 620, color: "rgba(92,122,158,0.12)" },
+  { top: "78%", left: "18%", size: 460, color: "rgba(232,92,138,0.09)" },
+  { top: "20%", left: "70%", size: 500, color: "rgba(143,175,107,0.09)" },
+];
+
 function Starfield() {
   const stars = useMemo(
     () =>
-      Array.from({ length: 70 }).map((_, i) => ({
+      Array.from({ length: 180 }).map((_, i) => ({
         id: i,
         top: Math.random() * 100,
         left: Math.random() * 100,
-        size: Math.random() * 2 + 0.5,
+        size: Math.random() * 2.2 + 0.5,
         dur: Math.random() * 3 + 2,
         delay: Math.random() * 3,
       })),
@@ -187,7 +204,24 @@ function Starfield() {
       <style>{`
         @keyframes twinkle { 0%,100% { opacity: 0.15; } 50% { opacity: 1; } }
         @keyframes floaty { 0%,100% { transform: translateY(0px); } 50% { transform: translateY(-8px); } }
+        @keyframes driftglow { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(3%,-4%) scale(1.08); } }
       `}</style>
+      {NEBULAE.map((n, i) => (
+        <div
+          key={i}
+          style={{
+            position: "absolute",
+            top: n.top,
+            left: n.left,
+            width: n.size,
+            height: n.size,
+            borderRadius: "50%",
+            background: `radial-gradient(circle, ${n.color}, transparent 70%)`,
+            filter: "blur(10px)",
+            animation: `driftglow ${28 + i * 6}s ease-in-out infinite`,
+          }}
+        />
+      ))}
       {stars.map((s) => (
         <div
           key={s.id}
@@ -204,33 +238,6 @@ function Starfield() {
         />
       ))}
     </div>
-  );
-}
-
-function FoodCard({ dish, onClick, index }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        background: `radial-gradient(circle at 30% 25%, ${hexToRgba(dish.mood, 0.35)}, ${CARD_BG} 70%)`,
-        border: `1px solid ${hexToRgba(dish.mood, 0.5)}`,
-        borderRadius: 16,
-        padding: "18px 10px 14px",
-        width: 118,
-        cursor: "pointer",
-        color: TEXT,
-        boxShadow: `0 0 18px ${hexToRgba(dish.mood, 0.18)}`,
-        animation: `floaty ${3 + (index % 4) * 0.4}s ease-in-out ${(index % 5) * 0.3}s infinite`,
-      }}
-    >
-      <div style={{ fontSize: 34 }}>{dish.emoji}</div>
-      <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 14.5, marginTop: 6 }}>
-        {dish.name}
-      </div>
-      <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, color: DUST, marginTop: 2 }}>
-        {dish.cuisine}
-      </div>
-    </button>
   );
 }
 
@@ -350,42 +357,80 @@ export default function App() {
   return (
     <div
       style={{
-        minHeight: "100vh",
+        position: "fixed",
+        inset: 0,
         background: BG,
         color: TEXT,
         fontFamily: "'IBM Plex Sans', sans-serif",
-        position: "relative",
-        overflowX: "hidden",
+        overflow: "hidden",
       }}
     >
       <style>{FONT_IMPORT}</style>
       <Starfield />
 
-      <div style={{ position: "relative", zIndex: 1, maxWidth: 480, margin: "0 auto", padding: "26px 16px 60px" }}>
-        <div style={{ textAlign: "center", marginBottom: 20 }}>
-          <div
-            style={{
-              fontFamily: "'IBM Plex Mono', monospace",
-              fontSize: 10.5,
-              letterSpacing: 2,
-              color: DUST,
-              textTransform: "uppercase",
-            }}
-          >
-            a galaxy of food
-          </div>
-          <h1 style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontWeight: 500, fontSize: 32, margin: "4px 0 0" }}>
-            Food Galaxy
-          </h1>
-        </div>
+      <GalaxyView dishes={filtered} onSelect={setSelected} />
 
-        <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 22, flexWrap: "wrap" }}>
+      {/* Floating header, sits above the galaxy without constraining it */}
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 5,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          padding: "22px 16px 14px",
+          pointerEvents: "none",
+          background: "linear-gradient(180deg, rgba(5,6,15,0.85) 0%, rgba(5,6,15,0) 100%)",
+        }}
+      >
+      <div
+  style={{
+    position: "fixed",
+    top: 16,
+    left: 16,
+    zIndex: 999,
+    fontSize: 12,
+    color: "#aaa",
+    fontFamily: "'IBM Plex Mono', monospace",
+    letterSpacing: 0.5,
+    opacity: 0.8,
+  }}
+>
+  made by Tejaswini ❤️
+</div>
+        <div
+          style={{
+            fontFamily: "'IBM Plex Mono', monospace",
+            fontSize: 10.5,
+            letterSpacing: 2,
+            color: DUST,
+            textTransform: "uppercase",
+          }}
+        >
+          Find your foods' cousin
+        </div>
+        <h1
+          style={{
+            fontFamily: "'Fraunces', serif",
+            fontStyle: "italic",
+            fontWeight: 500,
+            fontSize: 28,
+            margin: "2px 0 12px",
+          }}
+        >
+          Food Galaxy
+        </h1>
+
+        <div style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap", pointerEvents: "auto" }}>
           {CATEGORIES.map((c) => (
             <button
               key={c}
               onClick={() => setFilter(c)}
               style={{
-                background: filter === c ? TEXT : "transparent",
+                background: filter === c ? TEXT : "rgba(13,15,34,0.55)",
                 color: filter === c ? BG : DUST,
                 border: `1px solid ${filter === c ? TEXT : LINE}`,
                 borderRadius: 20,
@@ -394,39 +439,41 @@ export default function App() {
                 fontFamily: "'IBM Plex Sans', sans-serif",
                 cursor: "pointer",
                 textTransform: "capitalize",
+                backdropFilter: "blur(6px)",
               }}
             >
               {c}
             </button>
           ))}
         </div>
-
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 14, justifyContent: "center" }}>
-          {filtered.map((d, i) => (
-            <FoodCard key={d.id} dish={d} index={i} onClick={() => setSelected(d)} />
-          ))}
-
-          <button
-            onClick={() => setAdding(true)}
-            style={{
-              width: 118,
-              borderRadius: 16,
-              border: `1px dashed ${DUST}`,
-              background: "transparent",
-              color: DUST,
-              cursor: "pointer",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "18px 10px",
-            }}
-          >
-            <div style={{ fontSize: 26 }}>+</div>
-            <div style={{ fontSize: 11.5, marginTop: 4, fontFamily: "'IBM Plex Sans', sans-serif" }}>add a dish</div>
-          </button>
-        </div>
       </div>
+
+      {/* Floating action button to add a dish, doesn't interrupt the galaxy layout */}
+      <button
+        onClick={() => setAdding(true)}
+        style={{
+          position: "fixed",
+          right: 22,
+          bottom: 26,
+          zIndex: 5,
+          width: 58,
+          height: 58,
+          borderRadius: "50%",
+          border: `1px solid ${DUST}`,
+          background: "rgba(13,15,34,0.75)",
+          color: TEXT,
+          cursor: "pointer",
+          fontSize: 26,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          backdropFilter: "blur(6px)",
+          boxShadow: "0 0 22px rgba(0,0,0,0.4)",
+        }}
+        title="add a dish"
+      >
+        +
+      </button>
 
       {adding && (
         <div
@@ -446,12 +493,12 @@ export default function App() {
               Send a dish into orbit
             </div>
             <div style={{ fontSize: 12, color: DUST, marginBottom: 14 }}>
-              Any sweet, dish, or baked good. Saved to your device's atlas.
+              Enter any sweet, dish, or drink to find its cousin.
             </div>
             <input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder="e.g. pootharekulu, kimchi jjigae, cannoli…"
+              placeholder="e.g. Payasam, Pootharekulu, Kimchi jjigae..."
               style={{
                 width: "100%",
                 background: BG,

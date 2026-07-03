@@ -46,8 +46,8 @@ export default function GalaxyView({ dishes, onSelect }) {
   const { width, height } = useViewportSize();
   const isSmall = width < 640;
 
-const mainSize = 100;
-const cousinSize = 80;
+  const mainSize = window.innerWidth < 640 ? 70 : 100;
+  const cousinSize = window.innerWidth < 640 ? 55 : 80;
 const margin = 300
 
   // subtle parallax layer, driven by pointer position across the whole screen
@@ -67,8 +67,9 @@ const margin = 300
     const count = dishes.length;
     if (count === 0) return [];
 
-    const usableW = 1000;
-    const usableH = 300;
+    const usableW = window.innerWidth;
+const usableH = window.innerHeight * 0.7;
+const margin = window.innerWidth < 640 ? 80 : 200;
     const cols = Math.max(1, Math.round(Math.sqrt(count * (usableW / usableH))));
     const rows = Math.ceil(count / cols);
     const cellW = usableW / cols;

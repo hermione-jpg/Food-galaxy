@@ -3,6 +3,8 @@ import GalaxyView from "./Components/GalaxyView.jsx";
 
 const FONT_IMPORT = `
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;1,9..144,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+*::-webkit-scrollbar { display: none; }
+* { -ms-overflow-style: none; }
 `;
 
 const BG = "#05060F";
@@ -12,16 +14,13 @@ const DUST = "#8B8FB0";
 const LINE = "#22254A";
 const STORAGE_KEY = "food-galaxy-dishes";
 
-const CATEGORIES = ["all",
-  "indian",
-  "south-asian",
-  "chinese",
-  "italian",
-  "french",
-  "mediterranean",
-  "japanese",
-  "thai",
-];
+function slugify(str) {
+  return (str || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
 
 const SEED = [
   {
@@ -311,6 +310,7 @@ function DetailOrbit({ dish }) {
 export default function App() {
   const [dishes, setDishes] = useState(SEED);
   const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(null);
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
@@ -322,7 +322,43 @@ export default function App() {
     if (local.length) setDishes((d) => [...d, ...local]);
   }, []);
 
-  const filtered = dishes.filter((d) => filter === "all" || d.category === filter);
+  // close open modals on Escape
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key !== "Escape") return;
+      if (adding) {
+        setAdding(false);
+        setError(null);
+        setNewName("");
+      } else if (selected) {
+        setSelected(null);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [adding, selected]);
+
+  // cuisine pills are derived from whatever cuisines actually exist in the data,
+  // so they never drift out of sync with the dishes themselves
+  const cuisines = useMemo(() => {
+    const seen = new Map();
+    dishes.forEach((d) => {
+      const slug = slugify(d.cuisine);
+      if (slug && !seen.has(slug)) seen.set(slug, d.cuisine);
+    });
+    return [{ slug: "all", label: "All" }, ...Array.from(seen, ([slug, label]) => ({ slug, label }))];
+  }, [dishes]);
+
+  const filtered = dishes.filter((d) => {
+    const matchesCuisine = filter === "all" || slugify(d.cuisine) === filter;
+    const q = search.trim().toLowerCase();
+    const matchesSearch =
+      !q ||
+      d.name.toLowerCase().includes(q) ||
+      (d.cuisine || "").toLowerCase().includes(q) ||
+      (d.similar || []).some((s) => s.name.toLowerCase().includes(q));
+    return matchesCuisine && matchesSearch;
+  });
 
   const submitDish = async () => {
     const name = newName.trim();
@@ -381,26 +417,11 @@ export default function App() {
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          padding: "22px 16px 14px",
+          padding: "18px 16px 12px",
           pointerEvents: "none",
-          background: "linear-gradient(180deg, rgba(5,6,15,0.85) 0%, rgba(5,6,15,0) 100%)",
+          background: "linear-gradient(180deg, rgba(5,6,15,0.9) 0%, rgba(5,6,15,0) 100%)",
         }}
       >
-      <div
-  style={{
-    position: "fixed",
-    top: 16,
-    left: 16,
-    zIndex: 999,
-    fontSize: 12,
-    color: "#aaa",
-    fontFamily: "'IBM Plex Mono', monospace",
-    letterSpacing: 0.5,
-    opacity: 0.8,
-  }}
->
-  made by Tejaswini ❤️
-</div>
         <div
           style={{
             fontFamily: "'IBM Plex Mono', monospace",
@@ -410,43 +431,93 @@ export default function App() {
             textTransform: "uppercase",
           }}
         >
-          Find your foods' cousin
+          Find your food's cousin
         </div>
         <h1
           style={{
             fontFamily: "'Fraunces', serif",
             fontStyle: "italic",
             fontWeight: 500,
-            fontSize: 28,
-            margin: "2px 0 12px",
+            fontSize: "clamp(22px, 5vw, 28px)",
+            margin: "2px 0 10px",
           }}
         >
           Food Galaxy
         </h1>
 
-        <div style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap", pointerEvents: "auto" }}>
-          {CATEGORIES.map((c) => (
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="search a dish or cuisine…"
+          aria-label="Search dishes"
+          style={{
+            width: "min(320px, 82vw)",
+            background: "rgba(13,15,34,0.6)",
+            border: `1px solid ${LINE}`,
+            borderRadius: 20,
+            padding: "7px 14px",
+            color: TEXT,
+            fontSize: 12.5,
+            marginBottom: 10,
+            boxSizing: "border-box",
+            pointerEvents: "auto",
+            backdropFilter: "blur(6px)",
+          }}
+        />
+
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            pointerEvents: "auto",
+            maxWidth: "100%",
+            overflowX: "auto",
+            padding: "2px 4px 6px",
+            scrollbarWidth: "none",
+            justifyContent: cuisines.length > 6 ? "flex-start" : "center",
+          }}
+        >
+          {cuisines.map((c) => (
             <button
-              key={c}
-              onClick={() => setFilter(c)}
+              key={c.slug}
+              onClick={() => setFilter(c.slug)}
               style={{
-                background: filter === c ? TEXT : "rgba(13,15,34,0.55)",
-                color: filter === c ? BG : DUST,
-                border: `1px solid ${filter === c ? TEXT : LINE}`,
+                background: filter === c.slug ? TEXT : "rgba(13,15,34,0.55)",
+                color: filter === c.slug ? BG : DUST,
+                border: `1px solid ${filter === c.slug ? TEXT : LINE}`,
                 borderRadius: 20,
                 padding: "6px 14px",
                 fontSize: 12,
                 fontFamily: "'IBM Plex Sans', sans-serif",
                 cursor: "pointer",
-                textTransform: "capitalize",
+                whiteSpace: "nowrap",
+                flexShrink: 0,
                 backdropFilter: "blur(6px)",
               }}
             >
-              {c}
+              {c.label}
             </button>
           ))}
         </div>
       </div>
+
+      <div
+        style={{
+          position: "fixed",
+          top: 12,
+          left: 14,
+          zIndex: 5,
+          fontSize: 11,
+          color: "#8B8FB0",
+          fontFamily: "'IBM Plex Mono', monospace",
+          letterSpacing: 0.5,
+          opacity: 0.7,
+          pointerEvents: "none",
+        }}
+      >
+        made by Tejaswini ❤️
+      </div>
+
 
       {/* Floating action button to add a dish, doesn't interrupt the galaxy layout */}
       <button

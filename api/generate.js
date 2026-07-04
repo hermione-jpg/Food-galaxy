@@ -28,25 +28,38 @@ Return ONLY a JSON object, no prose, no markdown fences, matching exactly:
 Include exactly 3 items in "similar", from genuinely different regions where possible.`;
 
   try {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": process.env.ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 1000,
-        messages: [{ role: "user", content: prompt }],
-      }),
-    });
-
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [{ text: prompt }],
+            },
+          ],
+        }),
+      }
+    );
+    
     const data = await response.json();
-    const textBlock = (data.content || []).find((b) => b.type === "text");
-    if (!textBlock) throw new Error("No text in response");
 
-    const cleaned = textBlock.text.replace(/```json|```/g, "").trim();
+    if (!response.ok) {
+      console.error(data);
+      throw new Error(data.error?.message || "Gemini API request failed");
+    }
+    
+    const cleaned = data.candidates?.[0]?.content?.parts?.[0]?.text
+      ?.replace(/```json|```/g, "")
+      .trim();
+    
+    if (!cleaned) {
+      console.error(data);
+      throw new Error("No text in Gemini response");
+    }
     const parsed = JSON.parse(cleaned);
 
     return res.status(200).json(parsed);
